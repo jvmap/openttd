@@ -444,7 +444,7 @@ void Train::UpdateAcceleration()
 	uint power = this->gcache.cached_power;
 	uint weight = this->gcache.cached_weight;
 	assert(weight != 0);
-	this->acceleration = Clamp(power / weight * 4, 1, 255);
+	this->acceleration = Clamp(power / weight * 6, 1, 255);
 }
 
 /**
@@ -2800,21 +2800,22 @@ void Train::MarkDirty()
 }
 
 /**
- * This function looks at the vehicle and updates its speed (cur_speed
- * and subspeed) variables. Furthermore, it returns the distance that
- * the train can drive this tick. #Vehicle::GetAdvanceDistance() determines
- * the distance to drive before moving a step on the map.
- * @return distance to drive.
- */
-int Train::UpdateSpeed()
+* This function looks at the vehicle and updates its speed (cur_speed
+* and subspeed) variables. Furthermore, it returns the amount of progress that
+* the train can drive this timestep. #Vehicle::GetAdvanceDistance() determines
+* the amount of progress needed for moving a step on the map.
+* @param timestep The timestep in ms.
+* @return The amount of progress that the vehicle can drive this timestep.
+*/
+int Train::UpdateSpeed(int timestep)
 {
 	switch (_settings_game.vehicle.train_acceleration_model) {
 		default: NOT_REACHED();
 		case AM_ORIGINAL:
-			return this->DoUpdateSpeed(this->acceleration * (this->GetAccelerationStatus() == AS_BRAKE ? -4 : 2), 0, this->GetCurrentMaxSpeed());
+			return this->DoUpdateSpeed(this->GetAccelerationStatus() == AS_BRAKE ? -2000 : this->acceleration * 2000 / 255, 0, this->GetCurrentMaxSpeed(), timestep);
 
 		case AM_REALISTIC:
-			return this->DoUpdateSpeed(this->GetAcceleration(), this->GetAccelerationStatus() == AS_BRAKE ? 0 : 2, this->GetCurrentMaxSpeed());
+			return this->DoUpdateSpeed(this->GetAcceleration(), this->GetAccelerationStatus() == AS_BRAKE ? 0 : 2, this->GetCurrentMaxSpeed(), timestep);
 	}
 }
 
@@ -3740,7 +3741,7 @@ static bool TrainCheckIfLineEnds(Train *v, bool reverse)
 }
 
 
-static bool TrainLocoHandler(Train *v, bool mode)
+static bool TrainLocoHandler(Train *v, bool mode, int timestep)
 {
 	/* train has crashed? */
 	if (v->vehstatus & VS_CRASHED) {
@@ -3830,7 +3831,7 @@ static bool TrainLocoHandler(Train *v, bool mode)
 		return true;
 	}
 
-	int j = v->UpdateSpeed();
+	int progress = v->UpdateSpeed(timestep);
 
 	/* we need to invalidate the widget if we are stopping from 'Stopping 0 km/h' to 'Stopped' */
 	if (v->cur_speed == 0 && (v->vehstatus & VS_STOPPED)) {
@@ -3839,23 +3840,23 @@ static bool TrainLocoHandler(Train *v, bool mode)
 		SetWindowDirty(WC_VEHICLE_VIEW, v->index);
 	}
 
-	int adv_spd = v->GetAdvanceDistance();
-	if (j < adv_spd) {
+	int progressNeededForOneStep = v->GetAdvanceDistance(); // progress needed for a step on the map
+	if (progress < progressNeededForOneStep) {
 		/* if the vehicle has speed 0, update the last_speed field. */
 		if (v->cur_speed == 0) v->SetLastSpeed();
 	} else {
 		TrainCheckIfLineEnds(v);
 		/* Loop until the train has finished moving. */
 		for (;;) {
-			j -= adv_spd;
+			progress -= progressNeededForOneStep;
 			TrainController(v, NULL);
 			/* Don't continue to move if the train crashed. */
 			if (CheckTrainCollision(v)) break;
 			/* Determine distance to next map position */
-			adv_spd = v->GetAdvanceDistance();
+			progressNeededForOneStep = v->GetAdvanceDistance();
 
 			/* No more moving this tick */
-			if (j < adv_spd || v->cur_speed == 0) break;
+			if (progress < progressNeededForOneStep || v->cur_speed == 0) break;
 
 			OrderType order_type = v->current_order.GetType();
 			/* Do not skip waypoints (incl. 'via' stations) when passing through at full speed. */
@@ -3875,7 +3876,7 @@ static bool TrainLocoHandler(Train *v, bool mode)
 		u->UpdateViewport(false, false);
 	}
 
-	if (v->progress == 0) v->progress = j; // Save unused spd for next time, if TrainController didn't set progress
+	if (v->progress == 0) v->progress = progress; // Save unused progress for next time, if TrainController didn't set progress
 
 	return true;
 }
@@ -3918,9 +3919,9 @@ bool Train::Tick()
 
 		this->current_order_time++;
 
-		if (!TrainLocoHandler(this, false)) return false;
+		if (!TrainLocoHandler(this, false, GW_MILLISECONDS_PER_TICK / 2)) return false;
 
-		return TrainLocoHandler(this, true);
+		return TrainLocoHandler(this, true, GW_MILLISECONDS_PER_TICK / 2);
 	} else if (this->IsFreeWagon() && (this->vehstatus & VS_CRASHED)) {
 		/* Delete flooded standalone wagon chain */
 		if (++this->crash_anim_pos >= 4400) {

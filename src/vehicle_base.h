@@ -26,6 +26,12 @@
 #include <list>
 #include <map>
 
+/** The number of game world seconds per game tick. */
+static const int GW_MILLISECONDS_PER_TICK = 150; // 2000; // 1000 * SECONDS_PER_DAY / DAY_TICKS, assume DAY_TICKS = 44400
+
+/** The number of game world meters per tile (diagonal). */
+static const int GW_METERS_PER_TILE_DIAG = 80; // based on 60 hor/vert and factor 3/4 as in GetAdvanceDistance.
+
 /** Vehicle status bits in #Vehicle::vehstatus. */
 enum VehStatus {
 	VS_HIDDEN          = 0x01, ///< Vehicle is not visible.
@@ -319,7 +325,7 @@ public:
 	 * The vehicle speed is scaled by 3/4 when moving in X or Y direction due to the longer distance.
 	 *
 	 * However, this method is slightly wrong in corners, as the leftover progress is not scaled correctly
-	 * when changing movement direction. #GetAdvanceSpeed() and #GetAdvanceDistance() are better wrt. this.
+	 * when changing movement direction. #GetAdvanceDistance() is better wrt. this.
 	 *
 	 * @param speed Direction-independent unscaled speed.
 	 * @return speed scaled by movement direction. 256 units are required for each movement step.
@@ -330,28 +336,11 @@ public:
 	}
 
 	/**
-	 * Determines the effective vehicle movement speed.
+	 * Determines the amount of progress needed for a movement step on the map, based on the current direction of the vehicle.
 	 *
-	 * Together with #GetAdvanceDistance() this function is a replacement for #GetOldAdvanceSpeed().
+	 * This function is a replacement for #GetOldAdvanceSpeed().
 	 *
-	 * A vehicle progresses independent of it's movement direction.
-	 * However different amounts of "progress" are needed for moving a step in a specific direction.
-	 * That way the leftover progress does not need any adaption when changing movement direction.
-	 *
-	 * @param speed Direction-independent unscaled speed.
-	 * @return speed, scaled to match #GetAdvanceDistance().
-	 */
-	static inline uint GetAdvanceSpeed(uint speed)
-	{
-		return speed * 3 / 4;
-	}
-
-	/**
-	 * Determines the vehicle "progress" needed for moving a step.
-	 *
-	 * Together with #GetAdvanceSpeed() this function is a replacement for #GetOldAdvanceSpeed().
-	 *
-	 * @return distance to drive for a movement step on the map.
+	 * @return The required amount of progress for a movement step on the map.
 	 */
 	inline uint GetAdvanceDistance()
 	{

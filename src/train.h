@@ -133,7 +133,7 @@ struct Train FINAL : public GroundVehicle<Train, VEH_TRAIN> {
 
 	void ConsistChanged(ConsistChangeFlags allowed_changes);
 
-	int UpdateSpeed();
+	int UpdateSpeed(int timestep);
 
 	void UpdateAcceleration();
 

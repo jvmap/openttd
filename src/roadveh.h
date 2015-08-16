@@ -109,8 +109,8 @@ struct RoadVehicle FINAL : public GroundVehicle<RoadVehicle, VEH_ROAD> {
 	ExpensesType GetExpenseType(bool income) const { return income ? EXPENSES_ROADVEH_INC : EXPENSES_ROADVEH_RUN; }
 	bool IsPrimaryVehicle() const { return this->IsFrontEngine(); }
 	SpriteID GetImage(Direction direction, EngineImageType image_type) const;
-	int GetDisplaySpeed() const { return this->gcache.last_speed / 2; }
-	int GetDisplayMaxSpeed() const { return this->vcache.cached_max_speed / 2; }
+	int GetDisplaySpeed() const { return this->gcache.last_speed; }
+	int GetDisplayMaxSpeed() const { return this->vcache.cached_max_speed; }
 	Money GetRunningCost() const;
 	int GetDisplayImageWidth(Point *offset = NULL) const;
 	bool IsInDepot() const { return this->state == RVSB_IN_DEPOT; }
@@ -124,7 +124,7 @@ struct RoadVehicle FINAL : public GroundVehicle<RoadVehicle, VEH_ROAD> {
 	bool IsBus() const;
 
 	int GetCurrentMaxSpeed() const;
-	int UpdateSpeed();
+	int UpdateSpeed(int timestep);
 
 protected: // These functions should not be called outside acceleration code.
 
@@ -211,7 +211,7 @@ protected: // These functions should not be called outside acceleration code.
 	 */
 	inline uint16 GetCurrentSpeed() const
 	{
-		return this->cur_speed / 2;
+		return this->cur_speed;
 	}
 
 	/**

@@ -101,7 +101,7 @@ void GroundVehicle<T, Type>::CargoChanged()
 
 /**
  * Calculates the acceleration of the vehicle under its current conditions.
- * @return Current acceleration of the vehicle.
+ * @return Current acceleration of the vehicle in mm/s^2.
  */
 template <class T, VehicleType Type>
 int GroundVehicle<T, Type>::GetAcceleration() const
@@ -131,7 +131,7 @@ int GroundVehicle<T, Type>::GetAcceleration() const
 	 *     * 6.2E14 before dividing by 1000
 	 * Sum is 6.3E11, more than 4.3E9 of int32, so int64 is needed.
 	 */
-	int64 resistance = 0;
+	int64 resistance = 0; // in N
 
 	bool maglev = v->GetAccelerationType() == 2;
 
@@ -139,7 +139,7 @@ int GroundVehicle<T, Type>::GetAcceleration() const
 	if (!maglev) {
 		/* Static resistance plus rolling friction. */
 		resistance = this->gcache.cached_axle_resistance;
-		resistance += mass * v->GetRollingFriction();
+		resistance += mass * v->GetRollingFriction() /* in e-4 */;
 	}
 	/* Air drag; the air drag coefficient is in an arbitrary NewGRF-unit,
 	 * so we need some magic conversion factor. */
@@ -155,17 +155,12 @@ int GroundVehicle<T, Type>::GetAcceleration() const
 	 * low speed, it needs to be a 64 bit integer too. */
 	int64 force;
 	if (speed > 0) {
-		if (!maglev) {
-			/* Conversion factor from km/h to m/s is 5/18 to get [N] in the end. */
-			force = power * 18 / (speed * 5);
-			if (mode == AS_ACCEL && force > max_te) force = max_te;
-		} else {
-			force = power / 25;
-		}
+		/* Conversion factor from km/h to m/s is 5/18 to get [N] in the end. */
+		force = power * 18 / (speed * 5);
+		if (mode == AS_ACCEL && force > max_te) force = max_te;
 	} else {
 		/* "Kickoff" acceleration. */
-		force = (mode == AS_ACCEL && !maglev) ? min(max_te, power) : power;
-		force = max(force, (mass * 8) + resistance);
+		force = max_te;
 	}
 
 	if (mode == AS_ACCEL) {
@@ -173,14 +168,18 @@ int GroundVehicle<T, Type>::GetAcceleration() const
 		if (force == resistance) return 0;
 
 		/* When we accelerate, make sure we always keep doing that, even when
-		 * the excess force is more than the mass. Otherwise a vehicle going
-		 * down hill will never slow down enough, and a vehicle that came up
-		 * a hill will never speed up enough to (eventually) get back to the
-		 * same (maximum) speed. */
-		int accel = ClampToI32((force - resistance) / (mass * 4));
-		return force < resistance ? min(-1, accel) : max(1, accel);
+		* the excess force is more than the mass. Otherwise a vehicle going
+		* down hill will never slow down enough, and a vehicle that came up
+		* a hill will never speed up enough to (eventually) get back to the
+		* same (maximum) speed. */
+
+		// F / weight = F / mass [N/ton = mm/s^2]
+		int accel = ClampToI32((force - resistance) / mass); // [mm/s^2]
+		// clamp to reasonable range
+		accel = min(1500, accel);
+		return accel;
 	} else {
-		return ClampToI32(min(-force - resistance, -10000) / mass);
+		return -1500; // service braking of 1.5 m/s^2
 	}
 }
 

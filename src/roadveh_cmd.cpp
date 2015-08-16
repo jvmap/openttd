@@ -251,8 +251,8 @@ void RoadVehUpdateCache(RoadVehicle *v, bool same_length)
 		u->vcache.cached_cargo_age_period = GetVehicleProperty(u, PROP_ROADVEH_CARGO_AGE_PERIOD, EngInfo(u->engine_type)->cargo_age_period);
 	}
 
-	uint max_speed = GetVehicleProperty(v, PROP_ROADVEH_SPEED, 0);
-	v->vcache.cached_max_speed = (max_speed != 0) ? max_speed * 4 : RoadVehInfo(v->engine_type)->max_speed;
+	uint max_speed = GetVehicleProperty(v, PROP_ROADVEH_SPEED, 0) * 2;
+	v->vcache.cached_max_speed = (max_speed != 0) ? max_speed : RoadVehInfo(v->engine_type)->max_speed / 2;
 }
 
 /**
@@ -458,11 +458,11 @@ inline int RoadVehicle::GetCurrentMaxSpeed() const
 
 		/* Vehicle is on the middle part of a bridge. */
 		if (u->state == RVSB_WORMHOLE && !(u->vehstatus & VS_HIDDEN)) {
-			max_speed = min(max_speed, GetBridgeSpec(GetBridgeType(u->tile))->speed * 2);
+			max_speed = min(max_speed, GetBridgeSpec(GetBridgeType(u->tile))->speed);
 		}
 	}
 
-	return min(max_speed, this->current_order.GetMaxSpeed() * 2);
+	return min(max_speed, this->current_order.GetMaxSpeed());
 }
 
 /**
@@ -724,20 +724,21 @@ static void RoadVehArrivesAt(const RoadVehicle *v, Station *st)
 
 /**
  * This function looks at the vehicle and updates its speed (cur_speed
- * and subspeed) variables. Furthermore, it returns the distance that
- * the vehicle can drive this tick. #Vehicle::GetAdvanceDistance() determines
- * the distance to drive before moving a step on the map.
- * @return distance to drive.
+ * and subspeed) variables. Furthermore, it returns the amount of progress that
+ * the vehicle can drive this timestep. #Vehicle::GetAdvanceDistance() determines
+ * the amount of progress needed for moving a step on the map.
+ * @param timestep The timestep in ms.
+ * @return The amount of progress that the vehicle can drive this timestep.
  */
-int RoadVehicle::UpdateSpeed()
+int RoadVehicle::UpdateSpeed(int timestep)
 {
 	switch (_settings_game.vehicle.roadveh_acceleration_model) {
 		default: NOT_REACHED();
 		case AM_ORIGINAL:
-			return this->DoUpdateSpeed(this->overtaking != 0 ? 512 : 256, 0, this->GetCurrentMaxSpeed());
+			return this->DoUpdateSpeed(this->overtaking != 0 ? 1500 : 750, 0, this->GetCurrentMaxSpeed(), timestep);
 
 		case AM_REALISTIC:
-			return this->DoUpdateSpeed(this->GetAcceleration() + (this->overtaking != 0 ? 256 : 0), this->GetAccelerationStatus() == AS_BRAKE ? 0 : 4, this->GetCurrentMaxSpeed());
+			return this->DoUpdateSpeed(this->GetAcceleration() + (this->overtaking != 0 ? 500 : 0), this->GetAccelerationStatus() == AS_BRAKE ? 0 : 8, this->GetCurrentMaxSpeed(), timestep);
 	}
 }
 
@@ -860,7 +861,7 @@ static void RoadZPosAffectSpeed(RoadVehicle *v, int old_z)
 	if (old_z < v->z_pos) {
 		v->cur_speed = v->cur_speed * 232 / 256; // slow down by ~10%
 	} else {
-		uint16 spd = v->cur_speed + 2;
+		uint16 spd = v->cur_speed + 4;
 		if (spd <= v->vcache.cached_max_speed) v->cur_speed = spd;
 	}
 }
@@ -1517,7 +1518,7 @@ again:
 	return true;
 }
 
-static bool RoadVehController(RoadVehicle *v)
+static bool RoadVehController(RoadVehicle *v, int timestep)
 {
 	/* decrease counters */
 	v->current_order_time++;
@@ -1542,7 +1543,7 @@ static bool RoadVehController(RoadVehicle *v)
 	v->ShowVisualEffect();
 
 	/* Check how far the vehicle needs to proceed */
-	int j = v->UpdateSpeed();
+	int j = v->UpdateSpeed(timestep);
 
 	int adv_spd = v->GetAdvanceDistance();
 	bool blocked = false;
@@ -1598,7 +1599,7 @@ bool RoadVehicle::Tick()
 
 	if (this->IsFrontEngine()) {
 		if (!(this->vehstatus & VS_STOPPED)) this->running_ticks++;
-		return RoadVehController(this);
+		return RoadVehController(this, GW_MILLISECONDS_PER_TICK);
 	}
 
 	return true;
