@@ -109,7 +109,7 @@ int GroundVehicle<T, Type>::GetAcceleration() const
 	/* Templated class used for function calls for performance reasons. */
 	const T *v = T::From(this);
 	/* Speed is used squared later on, so U16 * U16, and then multiplied by other values. */
-	int64 speed = v->GetCurrentSpeed(); // [km/h-ish]
+	int64 speed = v->cur_speed; // [km/h-ish]
 
 	/* Weight is stored in tonnes. */
 	int32 mass = this->gcache.cached_weight;
@@ -168,10 +168,10 @@ int GroundVehicle<T, Type>::GetAcceleration() const
 		if (force == resistance) return 0;
 
 		/* When we accelerate, make sure we always keep doing that, even when
-		* the excess force is more than the mass. Otherwise a vehicle going
-		* down hill will never slow down enough, and a vehicle that came up
-		* a hill will never speed up enough to (eventually) get back to the
-		* same (maximum) speed. */
+		 * the excess force is more than the mass. Otherwise a vehicle going
+		 * down hill will never slow down enough, and a vehicle that came up
+		 * a hill will never speed up enough to (eventually) get back to the
+		 * same (maximum) speed. */
 
 		// F / weight = F / mass [N/ton = mm/s^2]
 		int accel = ClampToI32((force - resistance) / mass); // [mm/s^2]
@@ -179,7 +179,7 @@ int GroundVehicle<T, Type>::GetAcceleration() const
 		accel = min(1500, accel);
 		return accel;
 	} else {
-		return -1500; // service braking of 1.5 m/s^2
+		return -1500; // service braking of 1.5 m/s^2, only used for trains.
 	}
 }
 
