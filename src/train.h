@@ -285,7 +285,7 @@ protected: // These functions should not be called outside acceleration code.
 		/* Rolling friction for steel on steel is between 0.1% and 0.2%.
 		 * The friction coefficient increases with speed in a way that
 		 * it doubles at 512 km/h, triples at 1024 km/h and so on. */
-		return 15 * (512 + this->cur_speed) / 512;
+		return 15 * (512 + this->GetCurrentSpeed()) / 512;
 	}
 
 	/**

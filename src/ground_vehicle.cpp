@@ -109,7 +109,7 @@ int GroundVehicle<T, Type>::GetAcceleration() const
 	/* Templated class used for function calls for performance reasons. */
 	const T *v = T::From(this);
 	/* Speed is used squared later on, so U16 * U16, and then multiplied by other values. */
-	int64 speed = v->cur_speed; // [km/h-ish]
+	int64 speed = v->GetCurrentSpeed(); // [km/h-ish]
 
 	/* Weight is stored in tonnes. */
 	int32 mass = this->gcache.cached_weight;

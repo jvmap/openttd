@@ -225,7 +225,7 @@ protected: // These functions should not be called outside acceleration code.
 		uint32 coeff = (this->roadtype == ROADTYPE_TRAM) ? 40 : 75;
 		/* The friction coefficient increases with speed in a way that
 		 * it doubles at 128 km/h, triples at 256 km/h and so on. */
-		return coeff * (128 + this->cur_speed) / 128;
+		return coeff * (128 + this->GetCurrentSpeed()) / 128;
 	}
 
 	/**
