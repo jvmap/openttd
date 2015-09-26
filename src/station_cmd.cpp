@@ -3848,7 +3848,14 @@ uint MoveGoodsToStation(CargoID type, uint amount, SourceType source_type, Sourc
 
 	/* From now we'll calculate with fractal cargo amounts.
 	 * First determine how much cargo we really have. */
-	amount *= best_rating1 + 1;
+	if (IsCargoInClass(type, CC_PASSENGERS) || IsCargoInClass(type, CC_MAIL)) {
+		// For passenger and mail, amount depends on station rating.
+		amount *= best_rating1 + 1;
+	}
+	else {
+		// Transport all industrial cargo, regardless of station rating.
+		amount *= 256;
+	}
 
 	if (st2 == NULL) {
 		/* only one station around */

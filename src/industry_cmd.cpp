@@ -501,7 +501,7 @@ static void TransportIndustryGoods(TileIndex tile)
 
 	for (uint j = 0; j < lengthof(i->produced_cargo_waiting); j++) {
 		uint cw = min(i->produced_cargo_waiting[j], 255);
-		if (cw > indspec->minimal_cargo && i->produced_cargo[j] != CT_INVALID) {
+		if (cw * 10 > indspec->minimal_cargo && i->produced_cargo[j] != CT_INVALID) {
 			i->produced_cargo_waiting[j] -= cw;
 
 			/* fluctuating economy? */
@@ -1112,8 +1112,8 @@ static void ProduceIndustryGoods(Industry *i)
 		if (HasBit(indsp->callback_mask, CBM_IND_PRODUCTION_256_TICKS)) IndustryProductionCallback(i, 1);
 
 		IndustryBehaviour indbehav = indsp->behaviour;
-		i->produced_cargo_waiting[0] = min(0xffff, i->produced_cargo_waiting[0] + i->production_rate[0]);
-		i->produced_cargo_waiting[1] = min(0xffff, i->produced_cargo_waiting[1] + i->production_rate[1]);
+		i->produced_cargo_waiting[0] = min(0xffff, i->produced_cargo_waiting[0] + CeilDiv(i->production_rate[0], 10));
+		i->produced_cargo_waiting[1] = min(0xffff, i->produced_cargo_waiting[1] + CeilDiv(i->production_rate[1], 10));
 
 		if ((indbehav & INDUSTRYBEH_PLANT_FIELDS) != 0) {
 			uint16 cb_res = CALLBACK_FAILED;
